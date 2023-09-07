@@ -1,0 +1,52 @@
+---
+- hosts: app
+  become: true
+  tasks:
+    - name: install docker
+      package:
+        name: "{{item}}"
+        state: latest
+        update_cache: yes
+      loop:
+        - docker
+        - docker-compose
+        - containerd
+    - name: check docker is active
+      service:
+        name: docker
+        state: started
+        enabled: yes
+    - name: Ensure group "docker" exists
+      ansible.builtin.group:
+        name: docker
+        state: present
+    - name: adding local user to docker group
+      user:
+        name: ansible
+        groups: docker
+        append: yes
+
+
+- hosts: database
+  become: true
+  tasks:
+  
+    - name: install postgresql
+      package:
+        name: "postgresql-{{db_version}}"
+        state: present
+        update_cache: yes
+    - name: set data dir
+      lineinfile:
+        line: "data_directory = {{data_dir}}"
+        regexp: "^data_directory = "
+        path: /etc/postgresql/{{db_version}}/main/postgresql.conf
+      notify: Restart Postgresql
+  
+  handlers:
+  
+    - name: Restart Postgresql
+      service:
+        name: postgresql
+        state: restarted  
+
